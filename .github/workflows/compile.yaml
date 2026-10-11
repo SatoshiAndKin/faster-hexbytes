@@ -59,10 +59,9 @@ jobs:
         run: |
           cd "$RUNNER_TEMP"
           python - <<'PY'
-          import importlib
-          import importlib.machinery
-          module = importlib.import_module("faster_hexbytes.main")
-          assert isinstance(module.__loader__, importlib.machinery.ExtensionFileLoader), module.__file__
+          from importlib.machinery import ExtensionFileLoader
+          import faster_hexbytes.main as module
+          assert isinstance(module.__loader__, ExtensionFileLoader), module.__file__
           print(module.__file__)
           PY
 
