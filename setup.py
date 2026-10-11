@@ -15,7 +15,7 @@ extras_require = {
         "build>=0.9.0",
         "bump_my_version>=0.19.0",
         "ipython",
-        "mypy==2.3.0",
+        "mypy==2.4.0",
         "pre-commit>=3.4.0",
         "tox>=4.0.0",
         "twine",
@@ -124,5 +124,6 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
     ],
 )
