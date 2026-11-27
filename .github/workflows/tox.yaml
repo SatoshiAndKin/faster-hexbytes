@@ -23,7 +23,8 @@ jobs:
       run: python3 .github/scripts/ci_changes.py
   test:
     name: Test (${{ matrix.jobtype }}, 3.${{ matrix.pyminor }}, ${{ matrix.os }}, ${{ matrix.architecture }})
-    runs-on: ${{ matrix.os }}
+    # Docker 29.4.2 on Ubuntu 26.04 rejects legacy i386 socketcall.
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && matrix.architecture == 'x86' && 'ubuntu-24.04' || matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -54,12 +55,14 @@ jobs:
       TOXENV: py3${{ matrix.pyminor }}-${{ matrix.jobtype }}
       TOX_RECREATE_FLAG: ${{ github.event_name == 'schedule' && '-r' || '' }}
       IS_UBUNTU_32BIT: ${{ matrix.os == 'ubuntu-latest' && matrix.architecture == 'x86' }}
+      PIP_CONSTRAINT: ${{ matrix.pyminor == '13t' && format('{0}/.github/constraints-py313t.txt', github.workspace) || '' }}
+      PIP_BUILD_CONSTRAINT: ${{ matrix.pyminor == '13t' && format('{0}/.github/constraints-py313t.txt', github.workspace) || '' }}
     steps:
     - uses: actions/checkout@v7
     - name: Run job in 32-bit Ubuntu Docker container
       if: ${{ env.IS_UBUNTU_32BIT == 'true' }}
       shell: bash
-      run: "set -euo pipefail\n# Reuse the runner's working DNS for legacy 32-bit container libc.\ndocker_hosts=()\nfor hostname in pypi.org files.pythonhosted.org; do\n  address=$(getent ahostsv4 \"$hostname\" | awk 'NR == 1 {print $1}')\n  test -n \"$address\"\n  docker_hosts+=(--add-host \"$hostname:$address\")\ndone\ndocker run --rm --network host \"${docker_hosts[@]}\" \\\n  -e TOXENV=\"${{ env.TOXENV }}\" \\\n  -e TOX_RECREATE_FLAG=\"${{ env.TOX_RECREATE_FLAG }}\" \\\n  -e IS_UBUNTU_32BIT=\"${{ env.IS_UBUNTU_32BIT }}\" \\\n  -v \"${{ github.workspace }}:/workspace\" \\\n  -w /workspace \\\n  i386/python:3.${{ matrix.pyminor }} \\\n  bash -lc '\n    python -m pip install --upgrade pip\n    python -m pip install tox\n    python -m tox -e \"$TOXENV\" $TOX_RECREATE_FLAG\n  '\n"
+      run: "set -euo pipefail\ndocker run --rm \\\n  -e TOXENV=\"${{ env.TOXENV }}\" \\\n  -e TOX_RECREATE_FLAG=\"${{ env.TOX_RECREATE_FLAG }}\" \\\n  -e IS_UBUNTU_32BIT=\"${{ env.IS_UBUNTU_32BIT }}\" \\\n  -v \"${{ github.workspace }}:/workspace\" \\\n  -w /workspace \\\n  i386/python:3.${{ matrix.pyminor }} \\\n  bash -lc '\n    python -m pip install --upgrade pip\n    python -m pip install tox\n    python -m tox -e \"$TOXENV\" $TOX_RECREATE_FLAG\n  '\n"
       continue-on-error: ${{ matrix.pyminor == '13t' || matrix.pyminor == '14t' }}
     - name: Set up Python (macos)
       if: ${{ matrix.os == 'macos-latest' }}

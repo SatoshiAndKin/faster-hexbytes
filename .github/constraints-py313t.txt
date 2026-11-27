@@ -1,0 +1,7 @@
+# CPython 3.13t-only compatibility; newer ABIs use current dependencies.
+# ast-serialize 0.6 uses PyO3 0.28, which supports this ABI.
+ast-serialize==0.6.0
+pydantic==2.12.3
+hypothesis<6.156
+# mypyc 2.3 uses a deferred-decref API added after CPython 3.13.
+mypy==2.2.0
