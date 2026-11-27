@@ -62,7 +62,7 @@ jobs:
       shell: bash
       run: |
         set -euo pipefail
-        docker run --rm \
+        docker run --rm --network host \
           -e TOXENV="${{ env.TOXENV }}" \
           -e TOX_RECREATE_FLAG="${{ env.TOX_RECREATE_FLAG }}" \
           -e IS_UBUNTU_32BIT="${{ env.IS_UBUNTU_32BIT }}" \
