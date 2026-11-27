@@ -1,137 +1,101 @@
 name: Pytest Benchmarks
-
-on:
-  pull_request:
-    branches: [master]
-    paths:
-      - '**.py'
-      - '.github/workflows/benchmark.yaml'
-      - 'pyproject.toml'
-      - 'setup.py'
-  push:
-    branches: [master]
-    paths:
-      - '**.py'
-      - '.github/workflows/benchmark.yaml'
-      - 'pyproject.toml'
-      - 'setup.py'
-  workflow_dispatch:
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 jobs:
   benchmark:
     name: Run Benchmarks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      
-      - name: Set up Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
-          cache: pip
-          cache-dependency-path: |
-            setup.py
-            pyproject.toml
-            
-      - name: Cache .mypy_cache
-        uses: actions/cache@v6
-        with:
-          path: .mypy_cache
-          key: mypy-cache-${{ runner.os }}-x64-${{ hashFiles('**/*.py', 'pyproject.toml') }}
-          
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install .[benchmark]
-          
-      - name: Remove Python files from test env
-        run: rm -r faster_hexbytes
-        
-      - name: Run Pytest Benchmark & Save Output
-        run: make benchmark
-        
-      - name: Upload Pytest Benchmark Results
-        uses: actions/upload-artifact@v7
-        with:
-          name: pytest-benchmark-results
-          path: benchmark.json
-        
-      - name: Commit and Push Markdown Benchmark Results
-        continue-on-error: true
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin ${{ github.head_ref || github.ref_name }}
-          git checkout ${{ github.head_ref || github.ref_name }}
-          git add benchmarks/results/*.md
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "Update benchmark results [skip ci]"
-            git push origin HEAD:${{ github.head_ref || github.ref_name }}
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Upload Markdown Benchmark Results
-        uses: actions/upload-artifact@v7
-        with:
-          name: markdown-benchmark-results
-          path: benchmarks/results/*.md
-          
-      - name: Upload Pytest Benchmark Diff
-        uses: actions/upload-artifact@v7
-        with:
-          name: pytest-benchmark-diff
-          path: pytest_benchmark_diff.json
-          
-      - name: Post Pytest Benchmark Diff as PR Comment
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const fs = require('fs');
-            const diff = JSON.parse(fs.readFileSync('pytest_benchmark_diff.json', 'utf8'));
-            let body = '### Pytest Benchmark Diff\n\n';
-            const repo = `${context.repo.owner}/${context.repo.repo}`;
-            const branch = context.payload.pull_request ? context.payload.pull_request.head.ref : context.ref.replace('refs/heads/', '');
-            for (const [submodule, groupDiffs] of Object.entries(diff)) {
-              let submoduleFile = "unknown";
-              let benchmarkFile = "unknown";
-              const m = submodule.match(/^faster_hexbytes\.(.+)$/);
-              if (m) {
-                submoduleFile = `faster_hexbytes/${m[1]}.py`;
-                benchmarkFile = `benchmarks/test_${m[1]}_benchmarks.py`;
-              }
-              const submoduleUrl = `https://github.com/${repo}/blob/${branch}/${submoduleFile}`;
-              const benchmarkUrl = `https://github.com/${repo}/blob/${branch}/${benchmarkFile}`;
-              body += `#### [${submodule}](${submoduleUrl}) - [view benchmarks](${benchmarkUrl})\n`;
-              body += '| Function | Reference Mean | Faster Mean | % Change | Speedup (%) | x Faster | Faster |\n';
-              body += '|----------|---------------|-------------|----------|-------------|----------|--------|\n';
-              for (const [group, data] of Object.entries(groupDiffs).sort(([a], [b]) => a.localeCompare(b))) {
-                if (data.percent_change !== null && data.percent_change !== undefined) {
-                  let emoji = '➖';
-                  if (data.percent_change > 0) emoji = '✅';
-                  else if (data.percent_change < 0) emoji = '❌';
-                  const percentChange = data.percent_change !== undefined && data.percent_change !== null
-                    ? `${data.percent_change.toFixed(2)}%` : '';
-                  const speedupPercent = data.speedup_percent !== undefined && data.speedup_percent !== null
-                    ? `${data.speedup_percent.toFixed(2)}%` : '';
-                  const speedupX = data.speedup_x !== undefined && data.speedup_x !== null && isFinite(data.speedup_x)
-                    ? `${data.speedup_x.toFixed(2)}x` : '';
-                  body += `| \`${group}\` | ${data.reference_mean} | ${data.faster_mean} | ${percentChange} | ${speedupPercent} | ${speedupX} | ${emoji} |\n`;
-                } else if (data.note) {
-                  body += `| \`${group}\` |  |  |  |  |  | ➖ |\n`;
-                }
-              }
-              body += '\n';
-            }
-            github.rest.issues.createComment({
-              ...context.repo,
-              issue_number: context.issue.number,
-              body
-            });
-        if: github.event_name == 'pull_request'
+    - uses: actions/checkout@v7
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.14'
+        cache: pip
+        cache-dependency-path: 'setup.py
+
+          pyproject.toml
+
+          '
+    - name: Cache .mypy_cache
+      uses: actions/cache@v6
+      with:
+        path: .mypy_cache
+        key: mypy-cache-${{ runner.os }}-x64-${{ hashFiles('**/*.py', 'pyproject.toml') }}
+    - name: Install dependencies
+      run: 'python -m pip install --upgrade pip
+
+        pip install .[benchmark]
+
+        '
+    - name: Remove Python files from test env
+      run: rm -r faster_hexbytes
+    - name: Run Pytest Benchmark & Save Output
+      run: make benchmark
+    - name: Upload Pytest Benchmark Results
+      uses: actions/upload-artifact@v7
+      with:
+        name: pytest-benchmark-results
+        path: benchmark.json
+    - name: Commit and Push Markdown Benchmark Results
+      continue-on-error: true
+      run: "git config --local user.name \"github-actions[bot]\"\ngit config --local user.email \"github-actions[bot]@users.noreply.github.com\"\
+        \ngit fetch origin master\ngit checkout master\ngit add benchmarks/results/*.md\nif git diff --cached --quiet; then\n\
+        \  echo \"No changes to commit.\"\nelse\n  git commit -m \"Update benchmark results [skip ci]\"\n  git push origin\
+        \ HEAD:master\nfi\n"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      if: github.repository == 'BobTheBuidler/faster-hexbytes' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+    - name: Upload Markdown Benchmark Results
+      uses: actions/upload-artifact@v7
+      with:
+        name: markdown-benchmark-results
+        path: benchmarks/results/*.md
+    - name: Upload Pytest Benchmark Diff
+      uses: actions/upload-artifact@v7
+      with:
+        name: pytest-benchmark-diff
+        path: pytest_benchmark_diff.json
+    - name: Post Pytest Benchmark Diff as PR Comment
+      uses: actions/github-script@v9
+      with:
+        script: "const fs = require('fs');\nconst diff = JSON.parse(fs.readFileSync('pytest_benchmark_diff.json', 'utf8'));\n\
+          let body = '### Pytest Benchmark Diff\\n\\n';\nconst repo = `${context.repo.owner}/${context.repo.repo}`;\nconst\
+          \ branch = context.payload.pull_request ? context.payload.pull_request.head.ref : context.ref.replace('refs/heads/',\
+          \ '');\nfor (const [submodule, groupDiffs] of Object.entries(diff)) {\n  let submoduleFile = \"unknown\";\n  let\
+          \ benchmarkFile = \"unknown\";\n  const m = submodule.match(/^faster_hexbytes\\.(.+)$/);\n  if (m) {\n    submoduleFile\
+          \ = `faster_hexbytes/${m[1]}.py`;\n    benchmarkFile = `benchmarks/test_${m[1]}_benchmarks.py`;\n  }\n  const submoduleUrl\
+          \ = `https://github.com/${repo}/blob/${branch}/${submoduleFile}`;\n  const benchmarkUrl = `https://github.com/${repo}/blob/${branch}/${benchmarkFile}`;\n\
+          \  body += `#### [${submodule}](${submoduleUrl}) - [view benchmarks](${benchmarkUrl})\\n`;\n  body += '| Function\
+          \ | Reference Mean | Faster Mean | % Change | Speedup (%) | x Faster | Faster |\\n';\n  body += '|----------|---------------|-------------|----------|-------------|----------|--------|\\\
+          n';\n  for (const [group, data] of Object.entries(groupDiffs).sort(([a], [b]) => a.localeCompare(b))) {\n    if\
+          \ (data.percent_change !== null && data.percent_change !== undefined) {\n      let emoji = '\u2796';\n      if (data.percent_change\
+          \ > 0) emoji = '\u2705';\n      else if (data.percent_change < 0) emoji = '\u274C';\n      const percentChange =\
+          \ data.percent_change !== undefined && data.percent_change !== null\n        ? `${data.percent_change.toFixed(2)}%`\
+          \ : '';\n      const speedupPercent = data.speedup_percent !== undefined && data.speedup_percent !== null\n    \
+          \    ? `${data.speedup_percent.toFixed(2)}%` : '';\n      const speedupX = data.speedup_x !== undefined && data.speedup_x\
+          \ !== null && isFinite(data.speedup_x)\n        ? `${data.speedup_x.toFixed(2)}x` : '';\n      body += `| \\`${group}\\\
+          ` | ${data.reference_mean} | ${data.faster_mean} | ${percentChange} | ${speedupPercent} | ${speedupX} | ${emoji}\
+          \ |\\n`;\n    } else if (data.note) {\n      body += `| \\`${group}\\` |  |  |  |  |  | \u2796 |\\n`;\n    }\n \
+          \ }\n  body += '\\n';\n}\ngithub.rest.issues.createComment({\n  ...context.repo,\n  issue_number: context.issue.number,\n\
+          \  body\n});\n"
+      if: github.event_name == 'pull_request'
+'on':
+  pull_request:
+    branches:
+    - master
+    paths:
+    - '**.py'
+    - .github/workflows/benchmark.yaml
+    - pyproject.toml
+    - setup.py
+  push:
+    branches:
+    - master
+    paths:
+    - '**.py'
+    - .github/workflows/benchmark.yaml
+    - pyproject.toml
+    - setup.py
+  workflow_dispatch: null
